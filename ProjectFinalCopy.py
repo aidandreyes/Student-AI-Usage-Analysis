@@ -118,3 +118,16 @@ Data_merged["Level of Education"] = ( Data_merged["Level of Education"].astype("
 # Merged Dataset Print
 Data_merged
 
+## PART 2: BASELINE MODEL: The baseline model (constant model) redicts the mean of our target variable median income for every observation.
+# Constant Model MSE
+constant_prediction = Data_merged['Median'].mean()
+Data_merged['pred_constant'] = constant_prediction
+Data_merged['error'] = Data_merged['Median'] - Data_merged['pred_constant']
+Data_merged['squared_error'] = Data_merged['error'] ** 2
+
+# Constant Model RMSE
+mse_constant = Data_merged['squared_error'].mean()
+rmse_constant = np.sqrt(mse_constant)
+
+print("MSE of the constant model: $", mse_constant)
+print("RMSE of the constant model: $", rmse_constant)

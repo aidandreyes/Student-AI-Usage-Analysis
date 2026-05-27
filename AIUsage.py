@@ -215,3 +215,170 @@ y_pred_test = model.predict(x_test)
 rmse_test = np.sqrt(np.mean((y_test - y_pred_test) ** 2))
 print('Test RMSE:', rmse_test)
 
+# PART 5: FEATURE ENGINEERING: Log transformation + interaction term + binning
+# Log Transformation
+Data_merged['log_PE1'] = np.log1p(Data_merged['PE1'])
+
+# Before Log Transformation
+sns.regplot(x=Data_merged['PE1'], y=Data_merged['Median'])
+plt.title('PE1 vs Median (Before Log Transformation)')
+plt.xlabel('PE1')
+plt.ylabel('Median Income')
+
+plt.show()
+
+# After Log Transformation
+sns.regplot(x=Data_merged['log_PE1'], y=Data_merged['Median'])
+plt.title('After Log Transformation: PE1 vs. Median')
+plt.xlabel('PE1 (Log Transformation)')
+plt.ylabel('Median Income')
+
+# Interaction Term: PE1 x PE3
+Data_merged['interaction'] = Data_merged['PE1'] * Data_merged['PE3']
+Data_merged['interaction']
+
+# Binning
+Data_merged['PE1_binned'] = pd.cut(Data_merged['PE1'], bins=4, labels=False)
+Data_merged.head()
+
+# PART 6: FINAL MODEL + EVALUATION: Linear regression model
+#======== SET UP ================
+from sklearn.model_selection import train_test_split
+
+x = Data_merged[['PE1']] # Phase 3 feature
+y = Data_merged['Median']
+
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+
+# Check for 80/20 split
+x_train.shape, x_test.shape, y_train.shape, y_test.shape
+from sklearn.linear_model import LinearRegression
+import numpy as np
+model = LinearRegression()
+
+model.fit(x_train, y_train)
+
+y_pred_test = model.predict(x_test)
+rmse_test = np.sqrt(np.mean((y_test - y_pred_test) ** 2))
+print('Test RMSE:', rmse_test)
+
+
+Data_merged['interaction'] = Data_merged['PE1'] * Data_merged['PE3']
+Data_merged['interaction']
+
+X_engineered = Data_merged[["PE1", "log_PE1", "interaction"]]
+
+X_train_eng = X_engineered.loc[x_train.index]
+X_test_eng = X_engineered.loc[x_test.index]
+model_eng = LinearRegression()
+model_eng.fit(X_train_eng, y_train)
+y_pred_eng = model_eng.predict(X_test_eng)
+rmse_eng = np.sqrt(np.mean((y_test - y_pred_eng) ** 2))
+print('Engineered Model Test RMSE:', rmse_eng)
+
+residuals_eng = y_test - y_pred_eng
+plt.scatter(y_pred_eng, residuals_eng)
+plt.axhline(0, color='red')
+plt.xlabel('Predicted Values')
+plt.ylabel('Residuals')
+plt.title('Residual Plot: Engineered Model (Test Set)')
+
+# Unified Comparison Table
+#========== SET UP ===========
+
+# MSE Definition
+def mse(y, yhat):
+    return np.mean((y - yhat) ** 2)
+
+# RMSE Definition
+def rmse(y, yhat):
+    return np.sqrt(mse(y, yhat))
+
+
+# CONSTANT
+constant_prediction = Data_merged["Median"].mean()
+Data_merged["pred_constant"] = constant_prediction
+Data_merged["error"] = Data_merged["Median"] - Data_merged["pred_constant"]
+Data_merged["squared_error"] = Data_merged["error"] ** 2
+mse_constant = Data_merged["squared_error"].mean()
+rmse_constant = np.sqrt(mse_constant)
+
+# PHASE 3 SLR
+y_pred_train_p3 = model.predict(x_train)
+mse_train_p3 = mse(y_train, y_pred_train_p3)
+rmse_train_p3 = rmse(y_train, y_pred_train_p3)
+
+# EFM
+y_pred_train_eng = model_eng.predict(X_train_eng)
+mse_train_eng = mse(y_train, y_pred_train_eng)
+rmse_train_eng = rmse(y_train, y_pred_train_eng)
+
+
+# IMPROVEMENT
+improvement_p3 = rmse_constant - rmse_test
+improvement_eng = rmse_constant - rmse_eng
+
+comparison_table = pd.DataFrame({
+    "Model": [ "Constant Model", "Phase 3 SLR", "EFM"],
+
+    "MSE (train)": [mse_constant, mse_train_p3,mse_train_eng],
+
+    "RMSE (train)": [rmse_constant,rmse_train_p3,rmse_train_eng],
+
+    "RMSE (test)": [rmse_constant, rmse_test, rmse_eng ],
+
+    "Improvement over Baseline": ["N/A", improvement_p3, improvement_eng]
+})
+
+comparison_table
+
+# Actual vs Predicted Plot on Test Set
+#PE1 = The use of AI helps me access various sources of information relevant to my course, especially for academic assignments and understanding course materials.
+#========= PART 4 ============
+#given helpers
+def standard_units(x):
+    return (x - np.mean(x)) / np.std(x)
+
+def correlation(x, y):
+    return np.mean(standard_units(x) * standard_units(y))
+
+def slope(x, y):
+    return correlation(x, y) * np.std(y) / np.std(x)
+
+def intercept(x, y):
+    return np.mean(y) - slope(x, y) * np.mean(x)
+
+#x and y setting again for calculations
+x = Data_merged["PE1"]
+y = Data_merged["Median"]
+
+#slope and intercept calc
+# Slope = how much MEDIAN changes when PE1 INCREASES (1 = strongly disagree, 4 = strongly agree
+m = slope(x, y)
+#Intercept = Base Median when PE1 = 0
+b = intercept(x, y)
+
+#checks
+print(m)
+print(b)
+
+# Predicted Median
+Predicted_Median = b + m * x
+
+Data_merged['Predicted_Median'] = Predicted_Median
+
+plt.scatter(Data_merged['Median'], Data_merged['Predicted_Median'])
+plt.xlabel('Actual Median Income')
+plt.ylabel('Predicted Median Income')
+plt.title('Actual vs. Predicted Median Income Plot')
+
+minimum = min(Data_merged['Median'].min(), Data_merged['Predicted_Median'].min())
+maximum = max(Data_merged['Median'].max(), Data_merged['Predicted_Median'].max())
+plt.plot([minimum, maximum], [minimum, maximum], color='red', linestyle = '--')
+plt.show()
+
+# This plot shows that the model's predictions were very similar to the actual values of median income.
+
+# The lack of points being on the diagonal line indicate there is not many close predictions where the model's predicted income matches the actual income. Points above the line mean the predicted median income is higher than the actual median income, while points below the line mean the predicted median income is lower than the actual median income.
+
+# The plot shows the model lacks significant predictive power (as also indicated with the low coefficient of determination) considering there are many points both above and below the line, with only one actually on it.
